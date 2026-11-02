@@ -1,41 +1,59 @@
-"""Customer segmentation with PCA + K-Means.
-
-Usage: python segment.py [path/to/Mall_Customers.csv]
-"""
 import sys
-
-import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
+import matplotlib.pyplot as plt
+
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
-FEATURES = ["Age", "Annual Income (k$)", "Spending Score (1-100)"]
-
+# Load dataset
 df = pd.read_csv(sys.argv[1] if len(sys.argv) > 1 else "Mall_Customers.csv")
-X = StandardScaler().fit_transform(df[FEATURES])
 
-# PCA: project to 2 components for visualisation
-pca = PCA(n_components=2).fit(X)
-X2 = pca.transform(X)
-print("PCA explained variance:", pca.explained_variance_ratio_.round(3))
+features = ["Age", "Annual Income (k$)", "Spending Score (1-100)"]
+X = StandardScaler().fit_transform(df[features])
 
-# Pick k by silhouette score
-ks = range(2, 11)
-scores = [silhouette_score(X2, KMeans(k, n_init=10, random_state=42).fit_predict(X2)) for k in ks]
-best_k = ks[scores.index(max(scores))]
-print(f"Best k = {best_k} (silhouette = {max(scores):.3f})")
+# PCA dimensionality reduction
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+
+print("Explained variance:", pca.explained_variance_ratio_.round(3))
+print("Total variance:", round(pca.explained_variance_ratio_.sum(), 3))
+
+# Find optimal K using silhouette score
+k_values = range(2, 11)
+scores = [
+    silhouette_score(
+        X_pca,
+        KMeans(n_clusters=k, n_init=10, random_state=42).fit_predict(X_pca)
+    )
+    for k in k_values
+]
+
+best_k = list(k_values)[scores.index(max(scores))]
+print(f"\nOptimal clusters: {best_k}")
+print(f"Silhouette score: {max(scores):.3f}")
 
 # Final clustering
-df["Cluster"] = KMeans(best_k, n_init=10, random_state=42).fit_predict(X2)
-print(df.groupby("Cluster")[FEATURES].mean().round(1))
+model = KMeans(n_clusters=best_k, n_init=10, random_state=42)
+df["Cluster"] = model.fit_predict(X_pca)
 
-# Plots
-fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4))
-a.plot(ks, scores, marker="o")
-a.set(title="Silhouette score vs k", xlabel="k", ylabel="Silhouette")
-b.scatter(X2[:, 0], X2[:, 1], c=df["Cluster"], cmap="tab10", s=25)
-b.set(title=f"Customer segments (k={best_k})", xlabel="PC1", ylabel="PC2")
+# Cluster analysis
+print("\nCustomer segments:")
+print(df.groupby("Cluster")[features].mean().round(2))
+
+# Save results
+df.to_csv("customer_segments.csv", index=False)
+
+# Visualisation
+fig, ax = plt.subplots(1, 2, figsize=(11, 4))
+
+ax[0].plot(k_values, scores, marker="o")
+ax[0].set(title="Silhouette Analysis", xlabel="Number of Clusters", ylabel="Score")
+
+ax[1].scatter(X_pca[:, 0], X_pca[:, 1], c=df["Cluster"], cmap="viridis")
+ax[1].set(title="Customer Segmentation", xlabel="PC1", ylabel="PC2")
+
 plt.tight_layout()
 plt.savefig("segments.png", dpi=150)
+plt.show()
