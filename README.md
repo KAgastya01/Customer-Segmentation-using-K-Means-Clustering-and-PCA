@@ -12,8 +12,7 @@ Segments mall customers by age, annual income and spending score.
 Download the [Mall Customers dataset](https://www.kaggle.com/datasets/vjchoudhary7/customer-segmentation-tutorial-in-python) and save it as `Mall_Customers.csv` in this folder.
 
 ```bash
-pip install -r requirements.txt
-python segment.py
+python main.py
 ```
 
 Output: explained variance, best `k`, per-cluster feature means, and `segments.png`.
